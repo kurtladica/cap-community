@@ -77,14 +77,23 @@ export default function Posts() {
           .single()
 
         // Get comments
-        const { data: comments } = await supabase
+        const { data: commentsData } = await supabase
           .from('comments')
-          .select(`
-            *,
-            profiles:user_id (full_name)
-          `)
+          .select('*')
           .eq('post_id', post.id)
           .order('created_at', { ascending: true })
+
+        // Fetch profiles for each comment separately
+        const commentsWithProfiles = await Promise.all(
+          (commentsData || []).map(async (comment) => {
+            const { data: commentProfile } = await supabase
+              .from('profiles')
+              .select('full_name')
+              .eq('id', comment.user_id)
+              .single()
+            return { ...comment, profiles: commentProfile }
+          })
+        )
 
         return {
           ...post,
@@ -92,7 +101,7 @@ export default function Posts() {
           likesCount: likesCount || 0,
           liked: !!userLike,
           likeId: userLike?.id,
-          comments: comments || [],
+          comments: commentsWithProfiles || [],
         }
       })
     )
