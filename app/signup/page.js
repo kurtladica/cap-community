@@ -37,6 +37,15 @@ export default function Login() {
           fontWeight: 900,
           fontSize: '30px',
           color: 'rgb(16, 137, 211)',
+          marginBottom: '5px',
+        }}>
+          CAP Community
+        </div>
+        <div style={{
+          textAlign: 'center',
+          fontWeight: 700,
+          fontSize: '22px',
+          color: '#333',
           marginBottom: '20px',
         }}>
           Sign In
@@ -112,44 +121,22 @@ export default function Login() {
               borderRadius: '20px',
               boxShadow: 'rgba(133, 189, 215, 0.88) 0px 20px 10px -15px',
               border: 'none',
-              transition: 'all 0.2s ease-in-out',
               cursor: 'pointer',
               opacity: loading ? 0.6 : 1,
             }}
-            onMouseOver={(e) => { e.target.style.transform = 'scale(1.03)'; e.target.style.boxShadow = 'rgba(133, 189, 215, 0.88) 0px 23px 10px -20px' }}
-            onMouseOut={(e) => { e.target.style.transform = 'scale(1)'; e.target.style.boxShadow = 'rgba(133, 189, 215, 0.88) 0px 20px 10px -15px' }}
-            onMouseDown={(e) => { e.target.style.transform = 'scale(0.95)' }}
-            onMouseUp={(e) => { e.target.style.transform = 'scale(1.03)' }}
           >
-            {loading ? 'Signing in...' : 'Sign In'}
+            {loading ? 'Signing In...' : 'Sign In'}
           </button>
         </form>
 
-        <div style={{
-          display: 'block',
-          textAlign: 'center',
-          marginTop: '15px',
-        }}>
-          <Link href="/signup" style={{
-            textDecoration: 'none',
-            color: '#0099ff',
-            fontSize: '13px',
-            fontWeight: 500,
-          }}>
+        <div style={{ textAlign: 'center', marginTop: '15px' }}>
+          <Link href="/signup" style={{ textDecoration: 'none', color: '#0099ff', fontSize: '13px', fontWeight: 500 }}>
             Don&apos;t have an account? Sign Up
           </Link>
         </div>
 
-        <div style={{
-          display: 'block',
-          textAlign: 'center',
-          marginTop: '10px',
-        }}>
-          <Link href="/" style={{
-            textDecoration: 'none',
-            color: 'rgb(170, 170, 170)',
-            fontSize: '11px',
-          }}>
+        <div style={{ textAlign: 'center', marginTop: '8px' }}>
+          <Link href="/" style={{ textDecoration: 'none', color: 'rgb(170, 170, 170)', fontSize: '11px' }}>
             ← Back to Home
           </Link>
         </div>
