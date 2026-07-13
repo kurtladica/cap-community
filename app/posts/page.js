@@ -50,7 +50,6 @@ export default function Posts() {
       .order('created_at', { ascending: false })
 
     if (error) {
-      console.error('Error fetching posts:', error)
       setPosts([])
       setLoading(false)
       return
@@ -58,52 +57,17 @@ export default function Posts() {
 
     const postsWithDetails = await Promise.all(
       (postsData || []).map(async (post) => {
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('full_name, avatar_url')
-          .eq('id', post.user_id)
-          .single()
-
-        const { count: likesCount } = await supabase
-          .from('likes')
-          .select('*', { count: 'exact', head: true })
-          .eq('post_id', post.id)
-
-        const { data: userLike } = await supabase
-          .from('likes')
-          .select('*')
-          .eq('post_id', post.id)
-          .eq('user_id', userId)
-          .single()
-
-        const { data: commentsData } = await supabase
-          .from('comments')
-          .select('*')
-          .eq('post_id', post.id)
-          .order('created_at', { ascending: true })
-
-        const commentsWithProfiles = await Promise.all(
-          (commentsData || []).map(async (comment) => {
-            const { data: commentProfile } = await supabase
-              .from('profiles')
-              .select('full_name')
-              .eq('id', comment.user_id)
-              .single()
-            return { ...comment, profiles: commentProfile }
-          })
-        )
-
-        return {
-          ...post,
-          profiles: profile,
-          likesCount: likesCount || 0,
-          liked: !!userLike,
-          likeId: userLike?.id,
-          comments: commentsWithProfiles || [],
-        }
+        const { data: profile } = await supabase.from('profiles').select('full_name, avatar_url').eq('id', post.user_id).single()
+        const { count: likesCount } = await supabase.from('likes').select('*', { count: 'exact', head: true }).eq('post_id', post.id)
+        const { data: userLike } = await supabase.from('likes').select('*').eq('post_id', post.id).eq('user_id', userId).single()
+        const { data: commentsData } = await supabase.from('comments').select('*').eq('post_id', post.id).order('created_at', { ascending: true })
+        const commentsWithProfiles = await Promise.all((commentsData || []).map(async (comment) => {
+          const { data: cp } = await supabase.from('profiles').select('full_name').eq('id', comment.user_id).single()
+          return { ...comment, profiles: cp }
+        }))
+        return { ...post, profiles: profile, likesCount: likesCount || 0, liked: !!userLike, likeId: userLike?.id, comments: commentsWithProfiles || [] }
       })
     )
-
     setPosts(postsWithDetails)
     setLoading(false)
   }
@@ -113,29 +77,18 @@ export default function Posts() {
     if (!content.trim() && !imageFile) return
     setPosting(true)
     let imageUrl = null
-
     if (imageFile) {
       const fileName = `${user.id}/${Date.now()}-${imageFile.name}`
-      const { data: uploadData, error: uploadError } = await supabase.storage
-        .from('post-images')
-        .upload(fileName, imageFile)
+      const { data: uploadData, error: uploadError } = await supabase.storage.from('post-images').upload(fileName, imageFile)
       if (!uploadError) {
-        const { data: urlData } = supabase.storage
-          .from('post-images')
-          .getPublicUrl(fileName)
+        const { data: urlData } = supabase.storage.from('post-images').getPublicUrl(fileName)
         imageUrl = urlData.publicUrl
       }
     }
-
-    const { error } = await supabase
-      .from('posts')
-      .insert({ user_id: user.id, content: content.trim(), image_url: imageUrl })
-
-    if (!error) {
-      setContent('')
-      setImageFile(null)
-      fetchPosts(user.id)
-    }
+    await supabase.from('posts').insert({ user_id: user.id, content: content.trim(), image_url: imageUrl })
+    setContent('')
+    setImageFile(null)
+    fetchPosts(user.id)
     setPosting(false)
   }
 
@@ -145,17 +98,11 @@ export default function Posts() {
     fetchPosts(user.id)
   }
 
-  const handleEditPost = (post) => {
-    setEditingPost(post.id)
-    setEditContent(post.content || '')
-  }
-
+  const handleEditPost = (post) => { setEditingPost(post.id); setEditContent(post.content || '') }
   const handleSaveEdit = async (postId) => {
     if (!editContent.trim()) return
     await supabase.from('posts').update({ content: editContent.trim(), updated_at: new Date() }).eq('id', postId)
-    setEditingPost(null)
-    setEditContent('')
-    fetchPosts(user.id)
+    setEditingPost(null); setEditContent(''); fetchPosts(user.id)
   }
 
   const handleLike = async (post) => {
@@ -163,9 +110,7 @@ export default function Posts() {
       await supabase.from('likes').delete().eq('id', post.likeId)
     } else {
       await supabase.from('likes').insert({ user_id: user.id, post_id: post.id })
-      if (post.user_id !== user.id) {
-        await createNotification(post.user_id, user.id, 'like', post.id)
-      }
+      if (post.user_id !== user.id) await createNotification(post.user_id, user.id, 'like', post.id)
     }
     fetchPosts(user.id)
   }
@@ -173,18 +118,9 @@ export default function Posts() {
   const handleComment = async (postId) => {
     const commentText = commentInputs[postId]?.trim()
     if (!commentText) return
-
-    await supabase.from('comments').insert({
-      user_id: user.id,
-      post_id: postId,
-      content: commentText,
-    })
-
+    await supabase.from('comments').insert({ user_id: user.id, post_id: postId, content: commentText })
     const { data: postData } = await supabase.from('posts').select('user_id').eq('id', postId).single()
-    if (postData && postData.user_id !== user.id) {
-      await createNotification(postData.user_id, user.id, 'comment', postId)
-    }
-
+    if (postData && postData.user_id !== user.id) await createNotification(postData.user_id, user.id, 'comment', postId)
     setCommentInputs({ ...commentInputs, [postId]: '' })
     fetchPosts(user.id)
   }
@@ -198,122 +134,82 @@ export default function Posts() {
   if (loading) return <LoadingSpinner />
 
   return (
-    <div className="min-h-screen bg-gray-100">
+    <div className="min-h-screen bg-gray-100 dark:bg-gray-900 transition-colors">
       <div className="max-w-2xl mx-auto p-4">
-        <h1 className="text-2xl font-bold mb-6">📢 News Feed</h1>
-
-        {/* Create Post */}
-        <div className="bg-white rounded-lg shadow p-4 mb-6">
+        <h1 className="text-2xl font-bold mb-6 text-gray-800 dark:text-white">📢 News Feed</h1>
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 mb-6">
           <form onSubmit={handlePost}>
-            <textarea value={content} onChange={(e) => setContent(e.target.value)}
-              placeholder="What's on your mind?" className="w-full p-3 border rounded-lg resize-none mb-3" rows="3" />
+            <textarea value={content} onChange={(e) => setContent(e.target.value)} placeholder="What's on your mind?" className="w-full p-3 border dark:border-gray-600 rounded-lg resize-none mb-3 bg-white dark:bg-gray-700 dark:text-white" rows="3" />
             <div className="flex justify-between items-center">
-              <input type="file" accept="image/*" onChange={(e) => setImageFile(e.target.files[0])} className="text-sm" />
-              <button type="submit" disabled={posting || (!content.trim() && !imageFile)}
-                className="bg-blue-500 text-white px-6 py-2 rounded hover:bg-blue-600 disabled:opacity-50">
+              <input type="file" accept="image/*" onChange={(e) => setImageFile(e.target.files[0])} className="text-sm dark:text-gray-300" />
+              <button type="submit" disabled={posting || (!content.trim() && !imageFile)} className="bg-blue-500 text-white px-6 py-2 rounded hover:bg-blue-600 disabled:opacity-50">
                 {posting ? 'Posting...' : 'Post'}
               </button>
             </div>
           </form>
         </div>
 
-        {/* Posts */}
         {posts.length === 0 ? (
-          <div className="text-center text-gray-500 py-8">
+          <div className="text-center text-gray-500 dark:text-gray-400 py-8">
             <p className="text-lg mb-2">No posts to show!</p>
-            <button onClick={() => router.push('/search')}
-              className="mt-4 bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">Find Friends</button>
           </div>
         ) : (
           posts.map((post) => (
-            <div key={post.id} className="bg-white rounded-lg shadow p-4 mb-4">
-              {/* Author */}
+            <div key={post.id} className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 mb-4">
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center">
-                  <div className="w-10 h-10 rounded-full bg-gray-300 flex items-center justify-center font-bold mr-3">
+                  <div className="w-10 h-10 rounded-full bg-gray-300 dark:bg-gray-600 flex items-center justify-center font-bold mr-3">
                     {post.profiles?.full_name?.charAt(0) || '?'}
                   </div>
                   <div>
-                    <p className="font-semibold">{post.profiles?.full_name || 'Unknown'}</p>
-                    <p className="text-xs text-gray-500">{new Date(post.created_at).toLocaleString()}</p>
+                    <p className="font-semibold text-gray-800 dark:text-white">{post.profiles?.full_name || 'Unknown'}</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">{new Date(post.created_at).toLocaleString()}</p>
                   </div>
                 </div>
-                {/* Edit/Delete buttons (only for post owner) */}
                 {post.user_id === user.id && (
                   <div className="flex gap-2">
-                    {editingPost !== post.id && (
-                      <button onClick={() => handleEditPost(post)} className="text-blue-500 text-sm hover:underline">
-                        Edit
-                      </button>
-                    )}
-                    <button onClick={() => handleDeletePost(post.id)} className="text-red-500 text-sm hover:underline">
-                      Delete
-                    </button>
+                    {editingPost !== post.id && <button onClick={() => handleEditPost(post)} className="text-blue-500 text-sm hover:underline">Edit</button>}
+                    <button onClick={() => handleDeletePost(post.id)} className="text-red-500 text-sm hover:underline">Delete</button>
                   </div>
                 )}
               </div>
 
-              {/* Content or Edit Mode */}
               {editingPost === post.id ? (
                 <div className="mb-3">
-                  <textarea
-                    value={editContent}
-                    onChange={(e) => setEditContent(e.target.value)}
-                    className="w-full p-2 border rounded-lg mb-2"
-                    rows="3"
-                  />
+                  <textarea value={editContent} onChange={(e) => setEditContent(e.target.value)} className="w-full p-2 border dark:border-gray-600 rounded-lg mb-2 bg-white dark:bg-gray-700 dark:text-white" rows="3" />
                   <div className="flex gap-2">
-                    <button onClick={() => handleSaveEdit(post.id)} className="bg-green-500 text-white px-3 py-1 rounded text-sm hover:bg-green-600">
-                      Save
-                    </button>
-                    <button onClick={() => setEditingPost(null)} className="bg-gray-300 text-gray-700 px-3 py-1 rounded text-sm hover:bg-gray-400">
-                      Cancel
-                    </button>
+                    <button onClick={() => handleSaveEdit(post.id)} className="bg-green-500 text-white px-3 py-1 rounded text-sm">Save</button>
+                    <button onClick={() => setEditingPost(null)} className="bg-gray-300 dark:bg-gray-600 text-gray-700 dark:text-white px-3 py-1 rounded text-sm">Cancel</button>
                   </div>
                 </div>
               ) : (
                 <>
-                  {post.content && <p className="mb-3">{post.content}</p>}
+                  {post.content && <p className="mb-3 text-gray-800 dark:text-white">{post.content}</p>}
                   {post.image_url && <img src={post.image_url} alt="Post" className="w-full rounded-lg mb-3 max-h-96 object-cover" />}
                 </>
               )}
 
-              {/* Like Button */}
-              <div className="flex items-center gap-2 mb-3 border-t pt-3">
-                <button onClick={() => handleLike(post)}
-                  className={`flex items-center gap-1 px-3 py-1 rounded-full text-sm ${post.liked ? 'bg-blue-100 text-blue-600' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>
+              <div className="flex items-center gap-2 mb-3 border-t dark:border-gray-600 pt-3">
+                <button onClick={() => handleLike(post)} className={`flex items-center gap-1 px-3 py-1 rounded-full text-sm ${post.liked ? 'bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-300' : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'}`}>
                   {post.liked ? '❤️' : '🤍'} {post.likesCount > 0 && post.likesCount}
                 </button>
               </div>
 
-              {/* Comments */}
-              <div className="border-t pt-3">
+              <div className="border-t dark:border-gray-600 pt-3">
                 {post.comments.map((comment) => (
                   <div key={comment.id} className="mb-2 text-sm flex justify-between items-start">
                     <div>
-                      <span className="font-semibold">{comment.profiles?.full_name || 'Unknown'}</span>
-                      <span className="ml-2">{comment.content}</span>
+                      <span className="font-semibold text-gray-800 dark:text-white">{comment.profiles?.full_name || 'Unknown'}</span>
+                      <span className="ml-2 text-gray-700 dark:text-gray-300">{comment.content}</span>
                     </div>
                     {comment.user_id === user.id && (
-                      <button onClick={() => handleDeleteComment(comment.id)} className="text-red-400 hover:text-red-600 text-xs ml-2">
-                        ✕
-                      </button>
+                      <button onClick={() => handleDeleteComment(comment.id)} className="text-red-400 hover:text-red-600 text-xs ml-2">✕</button>
                     )}
                   </div>
                 ))}
                 <div className="flex gap-2 mt-2">
-                  <input
-                    type="text"
-                    value={commentInputs[post.id] || ''}
-                    onChange={(e) => setCommentInputs({ ...commentInputs, [post.id]: e.target.value })}
-                    onKeyDown={(e) => e.key === 'Enter' && handleComment(post.id)}
-                    placeholder="Write a comment..."
-                    className="flex-1 p-2 border rounded-lg text-sm"
-                  />
-                  <button onClick={() => handleComment(post.id)}
-                    className="bg-blue-500 text-white px-3 py-1 rounded text-sm hover:bg-blue-600">
-                    Post
-                  </button>
+                  <input type="text" value={commentInputs[post.id] || ''} onChange={(e) => setCommentInputs({ ...commentInputs, [post.id]: e.target.value })} onKeyDown={(e) => e.key === 'Enter' && handleComment(post.id)} placeholder="Write a comment..." className="flex-1 p-2 border dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 dark:text-white" />
+                  <button onClick={() => handleComment(post.id)} className="bg-blue-500 text-white px-3 py-1 rounded text-sm hover:bg-blue-600">Post</button>
                 </div>
               </div>
             </div>
