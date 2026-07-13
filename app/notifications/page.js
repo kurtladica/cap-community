@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../../lib/supabase'
 import { useRouter } from 'next/navigation'
+import LoadingSpinner from '../../components/LoadingSpinner'
 
 export default function Notifications() {
   const [user, setUser] = useState(null)
@@ -13,10 +14,7 @@ export default function Notifications() {
   useEffect(() => {
     const checkUser = async () => {
       const { data: { session } } = await supabase.auth.getSession()
-      if (!session) {
-        router.push('/login')
-        return
-      }
+      if (!session) { router.push('/login'); return }
       setUser(session.user)
       fetchNotifications(session.user.id)
     }
@@ -24,30 +22,14 @@ export default function Notifications() {
   }, [router])
 
   const fetchNotifications = async (userId) => {
-    const { data } = await supabase
-      .from('notifications')
-      .select(`
-        *,
-        from_profile:from_user_id (full_name)
-      `)
-      .eq('user_id', userId)
-      .order('created_at', { ascending: false })
-      .limit(50)
-
+    const { data } = await supabase.from('notifications').select(`*, from_profile:from_user_id (full_name)`).eq('user_id', userId).order('created_at', { ascending: false }).limit(50)
     setNotifications(data || [])
     setUnreadCount(data?.filter(n => !n.read).length || 0)
     setLoading(false)
   }
 
-  const markAsRead = async (id) => {
-    await supabase.from('notifications').update({ read: true }).eq('id', id)
-    fetchNotifications(user.id)
-  }
-
-  const markAllRead = async () => {
-    await supabase.from('notifications').update({ read: true }).eq('user_id', user.id).eq('read', false)
-    fetchNotifications(user.id)
-  }
+  const markAsRead = async (id) => { await supabase.from('notifications').update({ read: true }).eq('id', id); fetchNotifications(user.id) }
+  const markAllRead = async () => { await supabase.from('notifications').update({ read: true }).eq('user_id', user.id).eq('read', false); fetchNotifications(user.id) }
 
   const getNotificationText = (notif) => {
     const name = notif.from_profile?.full_name || 'Someone'
@@ -61,68 +43,30 @@ export default function Notifications() {
   }
 
   const getNotificationIcon = (type) => {
-    switch (type) {
-      case 'like': return '❤️'
-      case 'comment': return '💬'
-      case 'friend_request': return '👋'
-      case 'friend_accepted': return '✅'
-      default: return '🔔'
-    }
+    switch (type) { case 'like': return '❤️'; case 'comment': return '💬'; case 'friend_request': return '👋'; case 'friend_accepted': return '✅'; default: return '🔔' }
   }
 
-  const handleClick = (notif) => {
-    markAsRead(notif.id)
-    if (notif.type === 'like' || notif.type === 'comment') {
-      router.push('/posts')
-    } else {
-      router.push('/friends')
-    }
-  }
+  const handleClick = (notif) => { markAsRead(notif.id); router.push(notif.type === 'like' || notif.type === 'comment' ? '/posts' : '/friends') }
 
-  if (loading) return <div className="p-8">Loading...</div>
+  if (loading) return <LoadingSpinner />
 
   return (
-    <div className="min-h-screen bg-gray-100">
+    <div className="min-h-screen bg-gray-100 dark:bg-gray-900 transition-colors">
       <div className="max-w-2xl mx-auto p-4">
         <div className="flex justify-between items-center mb-6">
-          <h1 className="text-2xl font-bold">
-            🔔 Notifications
-            {unreadCount > 0 && (
-              <span className="ml-2 bg-red-500 text-white text-sm px-2 py-1 rounded-full">{unreadCount}</span>
-            )}
-          </h1>
-          <div className="flex gap-2">
-            {unreadCount > 0 && (
-              <button onClick={markAllRead} className="text-blue-500 hover:underline text-sm">
-                Mark all read
-              </button>
-            )}
-            <button onClick={() => router.push('/')} className="text-blue-500 hover:underline text-sm">← Home</button>
-          </div>
+          <h1 className="text-2xl font-bold text-gray-800 dark:text-white">🔔 Notifications {unreadCount > 0 && <span className="ml-2 bg-red-500 text-white text-sm px-2 py-1 rounded-full">{unreadCount}</span>}</h1>
+          {unreadCount > 0 && <button onClick={markAllRead} className="text-blue-500 hover:underline text-sm">Mark all read</button>}
         </div>
-
         {notifications.length === 0 ? (
-          <div className="text-center text-gray-500 py-8">
-            <p className="text-lg">No notifications yet</p>
-          </div>
+          <div className="text-center text-gray-500 dark:text-gray-400 py-8"><p className="text-lg">No notifications yet</p></div>
         ) : (
           notifications.map((notif) => (
-            <div
-              key={notif.id}
-              onClick={() => handleClick(notif)}
-              className={`p-4 mb-2 rounded-lg shadow cursor-pointer hover:shadow-md transition ${
-                notif.read ? 'bg-white' : 'bg-blue-50 border-l-4 border-blue-500'
-              }`}
-            >
+            <div key={notif.id} onClick={() => handleClick(notif)} className={`p-4 mb-2 rounded-lg shadow cursor-pointer hover:shadow-md transition ${notif.read ? 'bg-white dark:bg-gray-800' : 'bg-blue-50 dark:bg-blue-900 border-l-4 border-blue-500'}`}>
               <div className="flex items-center">
                 <span className="text-2xl mr-3">{getNotificationIcon(notif.type)}</span>
                 <div className="flex-1">
-                  <p className={`${notif.read ? 'text-gray-700' : 'font-semibold text-gray-900'}`}>
-                    {getNotificationText(notif)}
-                  </p>
-                  <p className="text-xs text-gray-500 mt-1">
-                    {new Date(notif.created_at).toLocaleString()}
-                  </p>
+                  <p className={`${notif.read ? 'text-gray-700 dark:text-gray-300' : 'font-semibold text-gray-900 dark:text-white'}`}>{getNotificationText(notif)}</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{new Date(notif.created_at).toLocaleString()}</p>
                 </div>
                 {!notif.read && <span className="w-3 h-3 bg-blue-500 rounded-full"></span>}
               </div>
