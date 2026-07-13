@@ -49,6 +49,10 @@ export default function Home() {
         </div>
         
         <div className="grid grid-cols-2 gap-4">
+          <Link href="/messages" className="bg-white rounded-lg shadow p-6 hover:shadow-md transition text-center">
+  <span className="text-3xl">💬</span>
+  <p className="mt-2 font-semibold">Messages</p>
+</Link>
           <Link href="/profile" className="bg-white rounded-lg shadow p-6 hover:shadow-md transition text-center">
             <span className="text-3xl">👤</span>
             <p className="mt-2 font-semibold">My Profile</p>
