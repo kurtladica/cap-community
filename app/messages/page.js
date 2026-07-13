@@ -30,6 +30,35 @@ export default function Messages() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
 
+  // Real-time subscription for new messages
+  useEffect(() => {
+    if (!user || !selectedFriend) return
+
+    const channel = supabase
+      .channel('messages')
+      .on('postgres_changes', {
+        event: 'INSERT',
+        schema: 'public',
+        table: 'messages',
+      }, (payload) => {
+        const newMsg = payload.new
+        if (
+          (newMsg.sender_id === user.id && newMsg.receiver_id === selectedFriend.id) ||
+          (newMsg.sender_id === selectedFriend.id && newMsg.receiver_id === user.id)
+        ) {
+          setMessages((prev) => [...prev, newMsg])
+          if (newMsg.receiver_id === user.id) {
+            supabase.from('messages').update({ read: true }).eq('id', newMsg.id)
+          }
+        }
+      })
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(channel)
+    }
+  }, [user, selectedFriend])
+
   const fetchFriends = async (userId) => {
     const { data: friendships } = await supabase
       .from('friendships')
@@ -62,7 +91,6 @@ export default function Messages() {
 
     setMessages(data || [])
 
-    // Mark received messages as read
     const unreadIds = (data || [])
       .filter(m => m.receiver_id === user.id && !m.read)
       .map(m => m.id)
@@ -103,9 +131,9 @@ export default function Messages() {
           <button onClick={() => router.push('/')} className="text-blue-500 hover:underline">← Home</button>
         </div>
 
-        <div className="flex gap-4 h-[70vh]">
+        <div className="flex flex-col sm:flex-row gap-4 h-[70vh]">
           {/* Friends List */}
-          <div className="w-1/3 bg-white rounded-lg shadow p-4 overflow-y-auto">
+          <div className="w-full sm:w-1/3 bg-white rounded-lg shadow p-4 overflow-y-auto">
             <h2 className="font-semibold mb-3 text-gray-700">Friends</h2>
             {friends.length === 0 ? (
               <p className="text-gray-500 text-sm">No friends yet.</p>
@@ -131,7 +159,6 @@ export default function Messages() {
           <div className="flex-1 bg-white rounded-lg shadow flex flex-col">
             {selectedFriend ? (
               <>
-                {/* Chat Header */}
                 <div className="p-4 border-b flex items-center">
                   <div className="w-10 h-10 rounded-full bg-gray-300 flex items-center justify-center font-bold mr-3">
                     {selectedFriend.full_name?.charAt(0) || '?'}
@@ -139,7 +166,6 @@ export default function Messages() {
                   <p className="font-semibold">{selectedFriend.full_name}</p>
                 </div>
 
-                {/* Messages */}
                 <div className="flex-1 overflow-y-auto p-4 space-y-3">
                   {messages.length === 0 && (
                     <p className="text-center text-gray-500 mt-8">No messages yet. Say hello!</p>
@@ -168,7 +194,6 @@ export default function Messages() {
                   <div ref={messagesEndRef} />
                 </div>
 
-                {/* Send Message */}
                 <form onSubmit={handleSend} className="p-4 border-t flex gap-2">
                   <input
                     type="text"
