@@ -1,5 +1,5 @@
 'use client'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { supabase } from '../../lib/supabase'
 import { useRouter } from 'next/navigation'
 import LoadingSpinner from '../../components/LoadingSpinner'
@@ -13,6 +13,10 @@ export default function Profile() {
   const [bio, setBio] = useState('')
   const [location, setLocation] = useState('')
   const [website, setWebsite] = useState('')
+  const [uploadingAvatar, setUploadingAvatar] = useState(false)
+  const [uploadingCover, setUploadingCover] = useState(false)
+  const avatarInputRef = useRef(null)
+  const coverInputRef = useRef(null)
   const router = useRouter()
 
   useEffect(() => {
@@ -33,6 +37,32 @@ export default function Profile() {
     fetchProfile()
   }, [router])
 
+  const uploadAvatar = async (file) => {
+    if (!file) return
+    setUploadingAvatar(true)
+    const fileName = `${user.id}/avatar-${Date.now()}`
+    const { error } = await supabase.storage.from('avatars').upload(fileName, file)
+    if (!error) {
+      const { data: urlData } = supabase.storage.from('avatars').getPublicUrl(fileName)
+      await supabase.from('profiles').update({ avatar_url: urlData.publicUrl, updated_at: new Date() }).eq('id', user.id)
+      setProfile({ ...profile, avatar_url: urlData.publicUrl })
+    }
+    setUploadingAvatar(false)
+  }
+
+  const uploadCover = async (file) => {
+    if (!file) return
+    setUploadingCover(true)
+    const fileName = `${user.id}/cover-${Date.now()}`
+    const { error } = await supabase.storage.from('avatars').upload(fileName, file)
+    if (!error) {
+      const { data: urlData } = supabase.storage.from('avatars').getPublicUrl(fileName)
+      await supabase.from('profiles').update({ cover_url: urlData.publicUrl, updated_at: new Date() }).eq('id', user.id)
+      setProfile({ ...profile, cover_url: urlData.publicUrl })
+    }
+    setUploadingCover(false)
+  }
+
   const handleSave = async () => {
     const { error } = await supabase.from('profiles').update({ full_name: fullName, bio, location, website, updated_at: new Date() }).eq('id', user.id)
     if (!error) { setProfile({ ...profile, full_name: fullName, bio, location, website }); setEditing(false) }
@@ -43,30 +73,69 @@ export default function Profile() {
 
   return (
     <div className="min-h-screen bg-gray-100 dark:bg-gray-900 transition-colors">
-      <div className="h-48 bg-gradient-to-r from-blue-500 to-purple-600 relative">
-        {profile?.cover_url && <img src={profile.cover_url} alt="Cover" className="w-full h-full object-cover" />}
+      {/* Cover Photo */}
+      <div 
+        className="h-48 sm:h-64 bg-gradient-to-r from-blue-500 to-purple-600 relative cursor-pointer group"
+        onClick={() => coverInputRef.current?.click()}
+      >
+        {profile?.cover_url && (
+          <img src={profile.cover_url} alt="Cover" className="w-full h-full object-cover" />
+        )}
+        <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-30 transition flex items-center justify-center">
+          <span className="text-white opacity-0 group-hover:opacity-100 transition">
+            {uploadingCover ? 'Uploading...' : '📷 Change Cover'}
+          </span>
+        </div>
+        <input 
+          ref={coverInputRef}
+          type="file" 
+          accept="image/*" 
+          className="hidden" 
+          onChange={(e) => uploadCover(e.target.files[0])}
+        />
       </div>
+
       <div className="max-w-2xl mx-auto px-4">
-        <div className="relative -mt-16 mb-4">
-          <div className="w-32 h-32 rounded-full border-4 border-white dark:border-gray-800 bg-gray-300 dark:bg-gray-600 overflow-hidden">
+        {/* Avatar */}
+        <div className="relative -mt-16 sm:-mt-20 mb-4">
+          <div 
+            className="w-32 h-32 sm:w-40 sm:h-40 rounded-full border-4 border-white dark:border-gray-800 bg-gray-300 dark:bg-gray-600 overflow-hidden cursor-pointer group relative"
+            onClick={() => avatarInputRef.current?.click()}
+          >
             {profile?.avatar_url ? (
               <img src={profile.avatar_url} alt="Avatar" className="w-full h-full object-cover" />
             ) : (
-              <div className="w-full h-full flex items-center justify-center text-gray-500 dark:text-gray-300 text-4xl">
+              <div className="w-full h-full flex items-center justify-center text-gray-500 dark:text-gray-300 text-5xl">
                 {profile?.full_name?.charAt(0) || user?.email?.charAt(0)?.toUpperCase()}
               </div>
             )}
+            <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-40 transition flex items-center justify-center">
+              <span className="text-white text-xs opacity-0 group-hover:opacity-100 transition">
+                {uploadingAvatar ? '...' : '📷'}
+              </span>
+            </div>
           </div>
+          <input 
+            ref={avatarInputRef}
+            type="file" 
+            accept="image/*" 
+            className="hidden" 
+            onChange={(e) => uploadAvatar(e.target.files[0])}
+          />
         </div>
+
+        {/* Name & Edit */}
         <div className="flex justify-between items-start mb-6">
           <div>
             <h1 className="text-2xl font-bold text-gray-800 dark:text-white">{profile?.full_name || 'No name set'}</h1>
             <p className="text-gray-600 dark:text-gray-400">{user?.email}</p>
           </div>
-          <button onClick={() => setEditing(!editing)} className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">
+          <button onClick={() => setEditing(!editing)} className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 text-sm">
             {editing ? 'Cancel' : 'Edit Profile'}
           </button>
         </div>
+
+        {/* Profile Details */}
         {editing ? (
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-6">
             <div className="space-y-4">
@@ -81,7 +150,7 @@ export default function Profile() {
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-6">
             {profile?.bio && <div className="mb-4"><h3 className="font-semibold text-gray-700 dark:text-gray-300">Bio</h3><p className="text-gray-600 dark:text-gray-400">{profile.bio}</p></div>}
             {profile?.location && <div className="mb-4"><h3 className="font-semibold text-gray-700 dark:text-gray-300">Location</h3><p className="text-gray-600 dark:text-gray-400">📍 {profile.location}</p></div>}
-            {profile?.website && <div className="mb-4"><h3 className="font-semibold text-gray-700 dark:text-gray-300">Website</h3><a href={profile.website} target="_blank" className="text-blue-500 hover:underline">🔗 {profile.website}</a></div>}
+            {profile?.website && <div className="mb-4"><h3 className="font-semibold text-gray-700 dark:text-gray-300">Website</h3><a href={profile.website} target="_blank" className="text-blue-500 hover:underline" rel="noreferrer">🔗 {profile.website}</a></div>}
             {!profile?.bio && !profile?.location && !profile?.website && <p className="text-gray-500 dark:text-gray-400">No details yet. Click Edit Profile to add some!</p>}
           </div>
         )}
