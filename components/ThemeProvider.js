@@ -1,7 +1,10 @@
 'use client'
 import { createContext, useContext, useEffect, useState } from 'react'
 
-const ThemeContext = createContext()
+const ThemeContext = createContext({
+  darkMode: false,
+  toggleDarkMode: () => {},
+})
 
 export function ThemeProvider({ children }) {
   const [darkMode, setDarkMode] = useState(false)
@@ -9,27 +12,34 @@ export function ThemeProvider({ children }) {
 
   useEffect(() => {
     const saved = localStorage.getItem('darkMode')
-    if (saved === 'true') {
-      setDarkMode(true)
+    const isDark = saved === 'true'
+    setDarkMode(isDark)
+    if (isDark) {
       document.documentElement.classList.add('dark')
     } else {
-      setDarkMode(false)
       document.documentElement.classList.remove('dark')
     }
     setMounted(true)
   }, [])
 
   const toggleDarkMode = () => {
-    setDarkMode((prev) => {
-      const newMode = !prev
-      localStorage.setItem('darkMode', newMode.toString())
-      if (newMode) {
-        document.documentElement.classList.add('dark')
-      } else {
-        document.documentElement.classList.remove('dark')
-      }
-      return newMode
-    })
+    const isDark = document.documentElement.classList.contains('dark')
+    const newMode = !isDark
+    
+    if (newMode) {
+      document.documentElement.classList.add('dark')
+      localStorage.setItem('darkMode', 'true')
+    } else {
+      document.documentElement.classList.remove('dark')
+      localStorage.setItem('darkMode', 'false')
+    }
+    
+    setDarkMode(newMode)
+    
+    // Small delay then reload to ensure CSS updates
+    setTimeout(() => {
+      window.location.reload()
+    }, 200)
   }
 
   if (!mounted) {
@@ -44,5 +54,6 @@ export function ThemeProvider({ children }) {
 }
 
 export function useTheme() {
-  return useContext(ThemeContext)
+  const context = useContext(ThemeContext)
+  return context
 }

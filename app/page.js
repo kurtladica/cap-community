@@ -50,6 +50,7 @@ export default function Home() {
       <div className="max-w-2xl mx-auto p-4 sm:p-8 pt-6">
         <div className="text-center mb-8">
           <h1 className="text-2xl sm:text-3xl font-bold text-gray-800 dark:text-white">Welcome back!</h1>
+          <p className="text-black dark:text-red-500 font-bold text-xl">DARK MODE TEST - RED IN DARK MODE</p>
           <p className="text-gray-500 dark:text-gray-400 mt-1">What would you like to do?</p>
         </div>
         
