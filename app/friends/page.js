@@ -1,6 +1,7 @@
 'use client'
 import { useEffect, useState } from 'react'
 import { supabase } from '../../lib/supabase'
+import { createNotification } from '../../lib/notifications'
 import { useRouter } from 'next/navigation'
 
 export default function Friends() {
@@ -48,6 +49,7 @@ export default function Friends() {
         profile,
         status: friendship.status,
         isSender: friendship.sender_id === userId,
+        senderId: friendship.sender_id,
       }
 
       if (friendship.status === 'accepted') {
@@ -62,11 +64,14 @@ export default function Friends() {
     setLoading(false)
   }
 
-  const handleAccept = async (friendshipId) => {
+  const handleAccept = async (friendshipId, senderId) => {
     await supabase
       .from('friendships')
       .update({ status: 'accepted', updated_at: new Date() })
       .eq('id', friendshipId)
+
+    // Notify the sender that their request was accepted
+    await createNotification(senderId, user.id, 'friend_accepted')
     fetchFriendsData(user.id)
   }
 
@@ -112,7 +117,7 @@ export default function Friends() {
                 </div>
                 <div className="flex gap-2">
                   <button
-                    onClick={() => handleAccept(req.friendshipId)}
+                    onClick={() => handleAccept(req.friendshipId, req.senderId)}
                     className="bg-green-500 text-white px-3 py-1 rounded text-sm hover:bg-green-600"
                   >
                     Accept

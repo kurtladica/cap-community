@@ -6,6 +6,7 @@ import Link from 'next/link'
 
 export default function Home() {
   const [user, setUser] = useState(null)
+  const [unreadNotifs, setUnreadNotifs] = useState(0)
   const router = useRouter()
 
   useEffect(() => {
@@ -16,9 +17,19 @@ export default function Home() {
         return
       }
       setUser(session.user)
+      fetchUnreadCount(session.user.id)
     }
     checkUser()
   }, [router])
+
+  const fetchUnreadCount = async (userId) => {
+    const { count } = await supabase
+      .from('notifications')
+      .select('*', { count: 'exact', head: true })
+      .eq('user_id', userId)
+      .eq('read', false)
+    setUnreadNotifs(count || 0)
+  }
 
   const handleLogout = async () => {
     await supabase.auth.signOut()
@@ -31,7 +42,7 @@ export default function Home() {
     <div className="min-h-screen p-8 bg-gray-100">
       <div className="max-w-2xl mx-auto">
         <div className="flex justify-between items-center mb-8">
-          <h1 className="text-2xl font-bold">🏠 Welcome to CAP Community!</h1>
+          <h1 className="text-2xl font-bold">🏠 CAP Community</h1>
           <button onClick={handleLogout} className="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600">
             Log out
           </button>
@@ -53,6 +64,15 @@ export default function Home() {
           <Link href="/search" className="bg-white rounded-lg shadow p-6 hover:shadow-md transition text-center">
             <span className="text-3xl">🔍</span>
             <p className="mt-2 font-semibold">Find Friends</p>
+          </Link>
+          <Link href="/notifications" className="bg-white rounded-lg shadow p-6 hover:shadow-md transition text-center relative">
+            <span className="text-3xl">🔔</span>
+            {unreadNotifs > 0 && (
+              <span className="absolute top-2 right-2 bg-red-500 text-white text-xs px-2 py-1 rounded-full">
+                {unreadNotifs}
+              </span>
+            )}
+            <p className="mt-2 font-semibold">Notifications</p>
           </Link>
         </div>
       </div>

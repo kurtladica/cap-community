@@ -1,6 +1,7 @@
 'use client'
 import { useEffect, useState } from 'react'
 import { supabase } from '../../lib/supabase'
+import { createNotification } from '../../lib/notifications'
 import { useRouter } from 'next/navigation'
 
 export default function Search() {
@@ -61,7 +62,11 @@ export default function Search() {
         status: 'pending',
       })
 
-    if (!error) fetchFriendships(user.id)
+    if (!error) {
+      // Send notification to receiver
+      await createNotification(receiverId, user.id, 'friend_request')
+      fetchFriendships(user.id)
+    }
   }
 
   const handleAcceptRequest = async (friendshipId) => {
@@ -70,7 +75,16 @@ export default function Search() {
       .update({ status: 'accepted', updated_at: new Date() })
       .eq('id', friendshipId)
 
-    if (!error) fetchFriendships(user.id)
+    if (!error) {
+      // Send notification to sender
+      const friendship = friendships[Object.keys(friendships).find(
+        key => friendships[key].id === friendshipId
+      )]
+      if (friendship) {
+        await createNotification(friendship.sender_id, user.id, 'friend_accepted')
+      }
+      fetchFriendships(user.id)
+    }
   }
 
   const handleRejectOrRemove = async (friendshipId) => {
