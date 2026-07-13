@@ -37,84 +37,82 @@ export default function Profile() {
     fetchProfile()
   }, [router])
 
-  // Resize image before converting to base64
-  const resizeImage = (file, maxWidth, maxHeight) => {
-    return new Promise((resolve) => {
-      const reader = new FileReader()
-      reader.readAsDataURL(file)
-      reader.onload = (e) => {
-        const img = new Image()
-        img.src = e.target.result
-        img.onload = () => {
-          const canvas = document.createElement('canvas')
-          let width = img.width
-          let height = img.height
-
-          if (width > maxWidth) {
-            height = (height * maxWidth) / width
-            width = maxWidth
-          }
-          if (height > maxHeight) {
-            width = (width * maxHeight) / height
-            height = maxHeight
-          }
-
-          canvas.width = width
-          canvas.height = height
-          const ctx = canvas.getContext('2d')
-          ctx.drawImage(img, 0, 0, width, height)
-          resolve(canvas.toDataURL('image/jpeg', 0.7))
-        }
-      }
-    })
-  }
-
-  const uploadAvatar = async (file) => {
-    if (!file) return
+  const handleUploadAvatar = async (file) => {
+    if (!file || !user) return
     setUploadingAvatar(true)
     try {
-      // Resize avatar to max 300x300
-      const base64 = await resizeImage(file, 300, 300)
-      const { error } = await supabase.from('profiles').update({ 
-        avatar_url: base64, 
-        updated_at: new Date() 
-      }).eq('id', user.id)
-      if (!error) {
-        setProfile({ ...profile, avatar_url: base64 })
-      } else {
-        alert('Error saving avatar: ' + error.message)
-      }
+      const fileExt = file.name.split('.').pop()
+      const fileName = `${user.id}/avatar-${Date.now()}.${fileExt}`
+      
+      const { error: uploadError } = await supabase.storage
+        .from('avatars')
+        .upload(fileName, file, { upsert: true })
+
+      if (uploadError) throw uploadError
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('avatars')
+        .getPublicUrl(fileName)
+
+      const { error: updateError } = await supabase
+        .from('profiles')
+        .update({ avatar_url: publicUrl, updated_at: new Date() })
+        .eq('id', user.id)
+
+      if (updateError) throw updateError
+
+      setProfile(prev => ({ ...prev, avatar_url: publicUrl }))
+      alert('✅ Profile picture updated!')
     } catch (err) {
-      alert('Error processing image')
+      alert('❌ Failed: ' + err.message)
     }
     setUploadingAvatar(false)
   }
 
-  const uploadCover = async (file) => {
-    if (!file) return
+  const handleUploadCover = async (file) => {
+    if (!file || !user) return
     setUploadingCover(true)
     try {
-      // Resize cover to max 1200x400
-      const base64 = await resizeImage(file, 1200, 400)
-      const { error } = await supabase.from('profiles').update({ 
-        cover_url: base64, 
-        updated_at: new Date() 
-      }).eq('id', user.id)
-      if (!error) {
-        setProfile({ ...profile, cover_url: base64 })
-      } else {
-        alert('Error saving cover: ' + error.message)
-      }
+      const fileExt = file.name.split('.').pop()
+      const fileName = `${user.id}/cover-${Date.now()}.${fileExt}`
+      
+      const { error: uploadError } = await supabase.storage
+        .from('avatars')
+        .upload(fileName, file, { upsert: true })
+
+      if (uploadError) throw uploadError
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('avatars')
+        .getPublicUrl(fileName)
+
+      const { error: updateError } = await supabase
+        .from('profiles')
+        .update({ cover_url: publicUrl, updated_at: new Date() })
+        .eq('id', user.id)
+
+      if (updateError) throw updateError
+
+      setProfile(prev => ({ ...prev, cover_url: publicUrl }))
+      alert('✅ Cover photo updated!')
     } catch (err) {
-      alert('Error processing image')
+      alert('❌ Failed: ' + err.message)
     }
     setUploadingCover(false)
   }
 
   const handleSave = async () => {
-    const { error } = await supabase.from('profiles').update({ full_name: fullName, bio, location, website, updated_at: new Date() }).eq('id', user.id)
-    if (!error) { setProfile({ ...profile, full_name: fullName, bio, location, website }); setEditing(false) }
-    else alert('Error saving profile')
+    const { error } = await supabase
+      .from('profiles')
+      .update({ full_name: fullName, bio, location, website, updated_at: new Date() })
+      .eq('id', user.id)
+    if (!error) { 
+      setProfile(prev => ({ ...prev, full_name: fullName, bio, location, website }))
+      setEditing(false)
+      alert('✅ Profile saved!')
+    } else {
+      alert('❌ Error saving profile')
+    }
   }
 
   if (loading) return <LoadingSpinner />
@@ -122,64 +120,62 @@ export default function Profile() {
   return (
     <div className="min-h-screen bg-gray-100 dark:bg-gray-900 transition-colors">
       {/* Cover Photo */}
-      <div 
-        className="h-48 sm:h-64 bg-gradient-to-r from-blue-500 to-purple-600 relative cursor-pointer group"
-        onClick={() => coverInputRef.current?.click()}
-      >
-        {profile?.cover_url ? (
+      <div className="h-48 sm:h-64 bg-gradient-to-r from-blue-500 to-purple-600 relative">
+        {profile?.cover_url && (
           <img src={profile.cover_url} alt="Cover" className="w-full h-full object-cover" />
-        ) : null}
-        <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-30 transition flex items-center justify-center">
-          <span className="text-white opacity-0 group-hover:opacity-100 transition text-sm font-semibold">
-            {uploadingCover ? '⏳ Uploading...' : '📷 Change Cover Photo'}
-          </span>
+        )}
+        
+        {/* Upload buttons overlay */}
+        <div className="absolute bottom-4 right-4 flex gap-2">
+          <button
+            onClick={() => coverInputRef.current?.click()}
+            disabled={uploadingCover}
+            className="bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 px-3 py-1.5 rounded-lg text-sm font-medium shadow hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50"
+          >
+            {uploadingCover ? '⏳ Uploading...' : '📷 Edit Cover'}
+          </button>
         </div>
-        <input 
-          ref={coverInputRef}
-          type="file" 
-          accept="image/*" 
-          className="hidden" 
-          onChange={(e) => e.target.files[0] && uploadCover(e.target.files[0])}
-        />
+        <input ref={coverInputRef} type="file" accept="image/*" className="hidden" 
+          onChange={(e) => e.target.files[0] && handleUploadCover(e.target.files[0])} />
       </div>
 
       <div className="max-w-2xl mx-auto px-4">
         {/* Avatar */}
         <div className="relative -mt-16 sm:-mt-20 mb-4 flex justify-center sm:justify-start">
-          <div 
-            className="w-32 h-32 sm:w-40 sm:h-40 rounded-full border-4 border-white dark:border-gray-800 bg-gray-300 dark:bg-gray-600 overflow-hidden cursor-pointer group relative shadow-lg"
-            onClick={() => avatarInputRef.current?.click()}
-          >
-            {profile?.avatar_url ? (
-              <img src={profile.avatar_url} alt="Avatar" className="w-full h-full object-cover" />
-            ) : (
-              <div className="w-full h-full flex items-center justify-center text-gray-500 dark:text-gray-300 text-5xl font-bold">
-                {profile?.full_name?.charAt(0) || user?.email?.charAt(0)?.toUpperCase()}
-              </div>
-            )}
-            <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-40 transition flex items-center justify-center">
-              <span className="text-white text-xs opacity-0 group-hover:opacity-100 transition font-semibold">
-                {uploadingAvatar ? '⏳' : '📷'}
-              </span>
+          <div className="relative">
+            <div className="w-32 h-32 sm:w-40 sm:h-40 rounded-full border-4 border-white dark:border-gray-800 overflow-hidden shadow-lg bg-gray-300 dark:bg-gray-600">
+              {profile?.avatar_url ? (
+                <img src={profile.avatar_url} alt="Avatar" className="w-full h-full object-cover" />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center text-gray-500 dark:text-gray-300 text-5xl font-bold">
+                  {profile?.full_name?.charAt(0) || user?.email?.charAt(0)?.toUpperCase()}
+                </div>
+              )}
             </div>
+            <button
+              onClick={() => avatarInputRef.current?.click()}
+              disabled={uploadingAvatar}
+              className="absolute bottom-0 right-0 bg-white dark:bg-gray-700 rounded-full p-2 shadow border dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-600 disabled:opacity-50"
+              title="Change profile picture"
+            >
+              {uploadingAvatar ? '⏳' : '📷'}
+            </button>
           </div>
-          <input 
-            ref={avatarInputRef}
-            type="file" 
-            accept="image/*" 
-            className="hidden" 
-            onChange={(e) => e.target.files[0] && uploadAvatar(e.target.files[0])}
-          />
+          <input ref={avatarInputRef} type="file" accept="image/*" className="hidden" 
+            onChange={(e) => e.target.files[0] && handleUploadAvatar(e.target.files[0])} />
         </div>
 
         {/* Name & Edit */}
         <div className="flex justify-between items-start mb-6 flex-col sm:flex-row gap-2 text-center sm:text-left">
           <div>
-            <h1 className="text-2xl font-bold text-gray-800 dark:text-white">{profile?.full_name || 'No name set'}</h1>
+            <h1 className="text-2xl font-bold text-gray-800 dark:text-white">
+              {profile?.full_name || 'No name set'}
+            </h1>
             <p className="text-gray-600 dark:text-gray-400">{user?.email}</p>
           </div>
-          <button onClick={() => setEditing(!editing)} className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 text-sm w-full sm:w-auto">
-            {editing ? 'Cancel' : 'Edit Profile'}
+          <button onClick={() => setEditing(!editing)} 
+            className="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 text-sm w-full sm:w-auto">
+            {editing ? 'Cancel' : '✏️ Edit Profile'}
           </button>
         </div>
 
@@ -187,11 +183,30 @@ export default function Profile() {
         {editing ? (
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-6">
             <div className="space-y-4">
-              <div><label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Full Name</label><input type="text" value={fullName} onChange={(e) => setFullName(e.target.value)} className="w-full p-2 border dark:border-gray-600 rounded bg-white dark:bg-gray-700 dark:text-white" /></div>
-              <div><label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Bio</label><textarea value={bio} onChange={(e) => setBio(e.target.value)} className="w-full p-2 border dark:border-gray-600 rounded bg-white dark:bg-gray-700 dark:text-white" rows="3" /></div>
-              <div><label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Location</label><input type="text" value={location} onChange={(e) => setLocation(e.target.value)} className="w-full p-2 border dark:border-gray-600 rounded bg-white dark:bg-gray-700 dark:text-white" /></div>
-              <div><label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Website</label><input type="url" value={website} onChange={(e) => setWebsite(e.target.value)} className="w-full p-2 border dark:border-gray-600 rounded bg-white dark:bg-gray-700 dark:text-white" /></div>
-              <button onClick={handleSave} className="w-full bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600">Save Changes</button>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Full Name</label>
+                <input type="text" value={fullName} onChange={(e) => setFullName(e.target.value)} 
+                  className="w-full p-2 border dark:border-gray-600 rounded bg-white dark:bg-gray-700 dark:text-white" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Bio</label>
+                <textarea value={bio} onChange={(e) => setBio(e.target.value)} 
+                  className="w-full p-2 border dark:border-gray-600 rounded bg-white dark:bg-gray-700 dark:text-white" rows="3" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Location</label>
+                <input type="text" value={location} onChange={(e) => setLocation(e.target.value)} 
+                  className="w-full p-2 border dark:border-gray-600 rounded bg-white dark:bg-gray-700 dark:text-white" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Website</label>
+                <input type="url" value={website} onChange={(e) => setWebsite(e.target.value)} 
+                  className="w-full p-2 border dark:border-gray-600 rounded bg-white dark:bg-gray-700 dark:text-white" />
+              </div>
+              <button onClick={handleSave} 
+                className="w-full bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-600">
+                💾 Save Changes
+              </button>
             </div>
           </div>
         ) : (
