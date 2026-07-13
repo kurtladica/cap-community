@@ -13,9 +13,9 @@ export default function Home() {
       const { data: { session } } = await supabase.auth.getSession()
       if (!session) {
         router.push('/login')
-      } else {
-        setUser(session.user)
+        return
       }
+      setUser(session.user)
     }
     checkUser()
   }, [router])
@@ -29,18 +29,25 @@ export default function Home() {
 
   return (
     <div className="min-h-screen p-8 bg-gray-100">
-      <div className="flex justify-between items-center">
-        <h1 className="text-2xl font-bold">Welcome to CAP Community!</h1>
-        <div className="space-x-2">
-          <Link href="/profile" className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">
-            My Profile
-          </Link>
+      <div className="max-w-2xl mx-auto">
+        <div className="flex justify-between items-center mb-8">
+          <h1 className="text-2xl font-bold">🏠 Welcome to CAP Community!</h1>
           <button onClick={handleLogout} className="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600">
             Log out
           </button>
         </div>
+        
+        <div className="grid grid-cols-2 gap-4">
+          <Link href="/profile" className="bg-white rounded-lg shadow p-6 hover:shadow-md transition text-center">
+            <span className="text-3xl">👤</span>
+            <p className="mt-2 font-semibold">My Profile</p>
+          </Link>
+          <Link href="/posts" className="bg-white rounded-lg shadow p-6 hover:shadow-md transition text-center">
+            <span className="text-3xl">📢</span>
+            <p className="mt-2 font-semibold">Feed</p>
+          </Link>
+        </div>
       </div>
-      <p className="mt-4 text-gray-600">Logged in as: {user.email}</p>
     </div>
   )
 }
