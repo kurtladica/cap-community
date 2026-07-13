@@ -75,9 +75,12 @@ export default function Messages() {
   }
 
   const handleDeleteConversation = async () => {
-    // Delete all messages between user and selected friend
-    await supabase.from('messages').delete()
-      .or(`and(sender_id.eq.${user.id},receiver_id.eq.${selectedFriend.id}),and(sender_id.eq.${selectedFriend.id},receiver_id.eq.${user.id})`)
+    // Delete messages sent by user to friend
+    await supabase.from('messages').delete().eq('sender_id', user.id).eq('receiver_id', selectedFriend.id)
+    
+    // Delete messages sent by friend to user
+    await supabase.from('messages').delete().eq('sender_id', selectedFriend.id).eq('receiver_id', user.id)
+    
     setShowConvoDelete(false)
     setMessages([])
   }
