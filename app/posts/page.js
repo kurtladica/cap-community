@@ -20,20 +20,36 @@ export default function Posts() {
         return
       }
       setUser(session.user)
-      fetchPosts()
+      fetchPosts(session.user.id)
     }
     checkUser()
   }, [router])
 
-  const fetchPosts = async () => {
+  const fetchPosts = async (userId) => {
+    // Get accepted friend IDs
+    const { data: friendships } = await supabase
+      .from('friendships')
+      .select('sender_id, receiver_id')
+      .or(`sender_id.eq.${userId},receiver_id.eq.${userId}`)
+      .eq('status', 'accepted')
+
+    const friendIds = friendships?.map(f => 
+      f.sender_id === userId ? f.receiver_id : f.sender_id
+    ) || []
+
+    // Include current user's posts too
+    const allIds = [userId, ...friendIds]
+
+    // Fetch posts from friends and self
     const { data } = await supabase
       .from('posts')
       .select(`
         *,
         profiles:user_id (full_name, avatar_url)
       `)
+      .in('user_id', allIds)
       .order('created_at', { ascending: false })
-    
+
     setPosts(data || [])
     setLoading(false)
   }
@@ -45,7 +61,6 @@ export default function Posts() {
     setPosting(true)
     let imageUrl = null
 
-    // Upload image if selected
     if (imageFile) {
       const fileName = `${user.id}/${Date.now()}-${imageFile.name}`
       const { data: uploadData, error: uploadError } = await supabase.storage
@@ -60,7 +75,6 @@ export default function Posts() {
       }
     }
 
-    // Create post
     const { error } = await supabase
       .from('posts')
       .insert({
@@ -72,7 +86,7 @@ export default function Posts() {
     if (!error) {
       setContent('')
       setImageFile(null)
-      fetchPosts()
+      fetchPosts(user.id)
     } else {
       alert('Error creating post')
     }
@@ -84,7 +98,7 @@ export default function Posts() {
       <div className="max-w-2xl mx-auto p-4">
         {/* Header */}
         <div className="flex justify-between items-center mb-6">
-          <h1 className="text-2xl font-bold">📢 Feed</h1>
+          <h1 className="text-2xl font-bold">📢 News Feed</h1>
           <button onClick={() => router.push('/')} className="text-blue-500 hover:underline">
             ← Home
           </button>
@@ -122,7 +136,16 @@ export default function Posts() {
         {loading ? (
           <p className="text-center text-gray-500">Loading posts...</p>
         ) : posts.length === 0 ? (
-          <p className="text-center text-gray-500">No posts yet. Be the first!</p>
+          <div className="text-center text-gray-500 py-8">
+            <p className="text-lg mb-2">No posts to show!</p>
+            <p>Add friends to see their posts, or create your own.</p>
+            <button
+              onClick={() => router.push('/search')}
+              className="mt-4 bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
+            >
+              Find Friends
+            </button>
+          </div>
         ) : (
           posts.map((post) => (
             <div key={post.id} className="bg-white rounded-lg shadow p-4 mb-4">
