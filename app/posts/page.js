@@ -4,7 +4,9 @@ import { useEffect, useState } from 'react'
 import { supabase } from '../../lib/supabase'
 import { useRouter } from 'next/navigation'
 import { createNotification } from '../../lib/notifications'
+import { timeAgo } from '../../lib/utils'
 import LoadingSpinner from '../../components/LoadingSpinner'
+import Link from 'next/link'
 
 export default function Posts() {
   const [user, setUser] = useState(null)
@@ -21,10 +23,7 @@ export default function Posts() {
   useEffect(() => {
     const checkUser = async () => {
       const { data: { session } } = await supabase.auth.getSession()
-      if (!session) {
-        router.push('/login')
-        return
-      }
+      if (!session) { router.push('/login'); return }
       setUser(session.user)
       fetchPosts(session.user.id)
     }
@@ -43,31 +42,23 @@ export default function Posts() {
     ) || []
     const allIds = [userId, ...friendIds]
 
-    const { data: postsData, error } = await supabase
+    const { data: postsData } = await supabase
       .from('posts')
       .select('*')
       .in('user_id', allIds)
       .order('created_at', { ascending: false })
 
-    if (error) {
-      setPosts([])
-      setLoading(false)
-      return
-    }
-
-    const postsWithDetails = await Promise.all(
-      (postsData || []).map(async (post) => {
-        const { data: profile } = await supabase.from('profiles').select('full_name, avatar_url').eq('id', post.user_id).single()
-        const { count: likesCount } = await supabase.from('likes').select('*', { count: 'exact', head: true }).eq('post_id', post.id)
-        const { data: userLike } = await supabase.from('likes').select('*').eq('post_id', post.id).eq('user_id', userId).single()
-        const { data: commentsData } = await supabase.from('comments').select('*').eq('post_id', post.id).order('created_at', { ascending: true })
-        const commentsWithProfiles = await Promise.all((commentsData || []).map(async (comment) => {
-          const { data: cp } = await supabase.from('profiles').select('full_name').eq('id', comment.user_id).single()
-          return { ...comment, profiles: cp }
-        }))
-        return { ...post, profiles: profile, likesCount: likesCount || 0, liked: !!userLike, likeId: userLike?.id, comments: commentsWithProfiles || [] }
-      })
-    )
+    const postsWithDetails = await Promise.all((postsData || []).map(async (post) => {
+      const { data: profile } = await supabase.from('profiles').select('*').eq('id', post.user_id).single()
+      const { count: likesCount } = await supabase.from('likes').select('*', { count: 'exact', head: true }).eq('post_id', post.id)
+      const { data: userLike } = await supabase.from('likes').select('*').eq('post_id', post.id).eq('user_id', userId).single()
+      const { data: commentsData } = await supabase.from('comments').select('*').eq('post_id', post.id).order('created_at', { ascending: true })
+      const commentsWithProfiles = await Promise.all((commentsData || []).map(async (comment) => {
+        const { data: cp } = await supabase.from('profiles').select('*').eq('id', comment.user_id).single()
+        return { ...comment, profiles: cp }
+      }))
+      return { ...post, profiles: profile, likesCount: likesCount || 0, liked: !!userLike, likeId: userLike?.id, comments: commentsWithProfiles || [] }
+    }))
     setPosts(postsWithDetails)
     setLoading(false)
   }
@@ -78,18 +69,16 @@ export default function Posts() {
     setPosting(true)
     let imageUrl = null
     if (imageFile) {
-      const fileName = `${user.id}/${Date.now()}-${imageFile.name}`
-      const { data: uploadData, error: uploadError } = await supabase.storage.from('post-images').upload(fileName, imageFile)
+      const fileExt = imageFile.name.split('.').pop()
+      const fileName = `${user.id}/${Date.now()}.${fileExt}`
+      const { error: uploadError } = await supabase.storage.from('post-images').upload(fileName, imageFile)
       if (!uploadError) {
-        const { data: urlData } = supabase.storage.from('post-images').getPublicUrl(fileName)
-        imageUrl = urlData.publicUrl
+        const { data: { publicUrl } } = supabase.storage.from('post-images').getPublicUrl(fileName)
+        imageUrl = publicUrl
       }
     }
     await supabase.from('posts').insert({ user_id: user.id, content: content.trim(), image_url: imageUrl })
-    setContent('')
-    setImageFile(null)
-    fetchPosts(user.id)
-    setPosting(false)
+    setContent(''); setImageFile(null); fetchPosts(user.id); setPosting(false)
   }
 
   const handleDeletePost = async (postId) => {
@@ -137,6 +126,7 @@ export default function Posts() {
     <div className="min-h-screen bg-gray-100 dark:bg-gray-900 transition-colors">
       <div className="max-w-2xl mx-auto p-4">
         <h1 className="text-2xl font-bold mb-6 text-gray-800 dark:text-white">📢 News Feed</h1>
+
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 mb-6">
           <form onSubmit={handlePost}>
             <textarea value={content} onChange={(e) => setContent(e.target.value)} placeholder="What's on your mind?" className="w-full p-3 border dark:border-gray-600 rounded-lg resize-none mb-3 bg-white dark:bg-gray-700 dark:text-white" rows="3" />
@@ -157,15 +147,23 @@ export default function Posts() {
           posts.map((post) => (
             <div key={post.id} className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 mb-4">
               <div className="flex items-center justify-between mb-3">
-                <div className="flex items-center">
-                  <div className="w-10 h-10 rounded-full bg-gray-300 dark:bg-gray-600 flex items-center justify-center font-bold mr-3">
-                    {post.profiles?.full_name?.charAt(0) || '?'}
+                <Link href={`/profile/${post.user_id}`} className="flex items-center hover:opacity-80 transition">
+                  <div className="w-10 h-10 rounded-full bg-gray-300 dark:bg-gray-600 overflow-hidden mr-3 flex-shrink-0">
+                    {post.profiles?.avatar_url ? (
+                      <img src={post.profiles.avatar_url} alt="" className="w-full h-full object-cover" />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center font-bold text-gray-500">
+                        {post.profiles?.full_name?.charAt(0) || '?'}
+                      </div>
+                    )}
                   </div>
                   <div>
-                    <p className="font-semibold text-gray-800 dark:text-white">{post.profiles?.full_name || 'Unknown'}</p>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">{new Date(post.created_at).toLocaleString()}</p>
+                    <p className="font-semibold text-gray-800 dark:text-white hover:underline">
+                      {post.profiles?.full_name || 'Unknown'}
+                    </p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">{timeAgo(post.created_at)}</p>
                   </div>
-                </div>
+                </Link>
                 {post.user_id === user.id && (
                   <div className="flex gap-2">
                     {editingPost !== post.id && <button onClick={() => handleEditPost(post)} className="text-blue-500 text-sm hover:underline">Edit</button>}
@@ -199,7 +197,9 @@ export default function Posts() {
                 {post.comments.map((comment) => (
                   <div key={comment.id} className="mb-2 text-sm flex justify-between items-start">
                     <div>
-                      <span className="font-semibold text-gray-800 dark:text-white">{comment.profiles?.full_name || 'Unknown'}</span>
+                      <Link href={`/profile/${comment.user_id}`} className="font-semibold text-gray-800 dark:text-white hover:underline">
+                        {comment.profiles?.full_name || 'Unknown'}
+                      </Link>
                       <span className="ml-2 text-gray-700 dark:text-gray-300">{comment.content}</span>
                     </div>
                     {comment.user_id === user.id && (
