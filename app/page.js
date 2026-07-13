@@ -46,6 +46,14 @@ export default function Home() {
             <span className="text-3xl">📢</span>
             <p className="mt-2 font-semibold">Feed</p>
           </Link>
+          <Link href="/friends" className="bg-white rounded-lg shadow p-6 hover:shadow-md transition text-center">
+            <span className="text-3xl">👥</span>
+            <p className="mt-2 font-semibold">Friends</p>
+          </Link>
+          <Link href="/search" className="bg-white rounded-lg shadow p-6 hover:shadow-md transition text-center">
+            <span className="text-3xl">🔍</span>
+            <p className="mt-2 font-semibold">Find Friends</p>
+          </Link>
         </div>
       </div>
     </div>
