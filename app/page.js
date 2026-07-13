@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 
 export default function Home() {
   const [user, setUser] = useState(null)
@@ -28,8 +29,18 @@ export default function Home() {
 
   return (
     <div className="min-h-screen p-8 bg-gray-100">
-      <h1 className="text-2xl font-bold">Welcome to CAP Community, {user.email}!</h1>
-      <button onClick={handleLogout} className="mt-4 bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600">Log out</button>
+      <div className="flex justify-between items-center">
+        <h1 className="text-2xl font-bold">Welcome to CAP Community!</h1>
+        <div className="space-x-2">
+          <Link href="/profile" className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">
+            My Profile
+          </Link>
+          <button onClick={handleLogout} className="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600">
+            Log out
+          </button>
+        </div>
+      </div>
+      <p className="mt-4 text-gray-600">Logged in as: {user.email}</p>
     </div>
   )
 }
