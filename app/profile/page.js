@@ -37,15 +37,55 @@ export default function Profile() {
     fetchProfile()
   }, [router])
 
+  // Resize image before converting to base64
+  const resizeImage = (file, maxWidth, maxHeight) => {
+    return new Promise((resolve) => {
+      const reader = new FileReader()
+      reader.readAsDataURL(file)
+      reader.onload = (e) => {
+        const img = new Image()
+        img.src = e.target.result
+        img.onload = () => {
+          const canvas = document.createElement('canvas')
+          let width = img.width
+          let height = img.height
+
+          if (width > maxWidth) {
+            height = (height * maxWidth) / width
+            width = maxWidth
+          }
+          if (height > maxHeight) {
+            width = (width * maxHeight) / height
+            height = maxHeight
+          }
+
+          canvas.width = width
+          canvas.height = height
+          const ctx = canvas.getContext('2d')
+          ctx.drawImage(img, 0, 0, width, height)
+          resolve(canvas.toDataURL('image/jpeg', 0.7))
+        }
+      }
+    })
+  }
+
   const uploadAvatar = async (file) => {
     if (!file) return
     setUploadingAvatar(true)
-    const fileName = `${user.id}/avatar-${Date.now()}`
-    const { error } = await supabase.storage.from('avatars').upload(fileName, file)
-    if (!error) {
-      const { data: urlData } = supabase.storage.from('avatars').getPublicUrl(fileName)
-      await supabase.from('profiles').update({ avatar_url: urlData.publicUrl, updated_at: new Date() }).eq('id', user.id)
-      setProfile({ ...profile, avatar_url: urlData.publicUrl })
+    try {
+      // Resize avatar to max 300x300
+      const base64 = await resizeImage(file, 300, 300)
+      const { error } = await supabase.from('profiles').update({ 
+        avatar_url: base64, 
+        updated_at: new Date() 
+      }).eq('id', user.id)
+      if (!error) {
+        setProfile({ ...profile, avatar_url: base64 })
+      } else {
+        alert('Error saving avatar: ' + error.message)
+      }
+    } catch (err) {
+      alert('Error processing image')
     }
     setUploadingAvatar(false)
   }
@@ -53,12 +93,20 @@ export default function Profile() {
   const uploadCover = async (file) => {
     if (!file) return
     setUploadingCover(true)
-    const fileName = `${user.id}/cover-${Date.now()}`
-    const { error } = await supabase.storage.from('avatars').upload(fileName, file)
-    if (!error) {
-      const { data: urlData } = supabase.storage.from('avatars').getPublicUrl(fileName)
-      await supabase.from('profiles').update({ cover_url: urlData.publicUrl, updated_at: new Date() }).eq('id', user.id)
-      setProfile({ ...profile, cover_url: urlData.publicUrl })
+    try {
+      // Resize cover to max 1200x400
+      const base64 = await resizeImage(file, 1200, 400)
+      const { error } = await supabase.from('profiles').update({ 
+        cover_url: base64, 
+        updated_at: new Date() 
+      }).eq('id', user.id)
+      if (!error) {
+        setProfile({ ...profile, cover_url: base64 })
+      } else {
+        alert('Error saving cover: ' + error.message)
+      }
+    } catch (err) {
+      alert('Error processing image')
     }
     setUploadingCover(false)
   }
@@ -78,12 +126,12 @@ export default function Profile() {
         className="h-48 sm:h-64 bg-gradient-to-r from-blue-500 to-purple-600 relative cursor-pointer group"
         onClick={() => coverInputRef.current?.click()}
       >
-        {profile?.cover_url && (
+        {profile?.cover_url ? (
           <img src={profile.cover_url} alt="Cover" className="w-full h-full object-cover" />
-        )}
+        ) : null}
         <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-30 transition flex items-center justify-center">
-          <span className="text-white opacity-0 group-hover:opacity-100 transition">
-            {uploadingCover ? 'Uploading...' : '📷 Change Cover'}
+          <span className="text-white opacity-0 group-hover:opacity-100 transition text-sm font-semibold">
+            {uploadingCover ? '⏳ Uploading...' : '📷 Change Cover Photo'}
           </span>
         </div>
         <input 
@@ -91,27 +139,27 @@ export default function Profile() {
           type="file" 
           accept="image/*" 
           className="hidden" 
-          onChange={(e) => uploadCover(e.target.files[0])}
+          onChange={(e) => e.target.files[0] && uploadCover(e.target.files[0])}
         />
       </div>
 
       <div className="max-w-2xl mx-auto px-4">
         {/* Avatar */}
-        <div className="relative -mt-16 sm:-mt-20 mb-4">
+        <div className="relative -mt-16 sm:-mt-20 mb-4 flex justify-center sm:justify-start">
           <div 
-            className="w-32 h-32 sm:w-40 sm:h-40 rounded-full border-4 border-white dark:border-gray-800 bg-gray-300 dark:bg-gray-600 overflow-hidden cursor-pointer group relative"
+            className="w-32 h-32 sm:w-40 sm:h-40 rounded-full border-4 border-white dark:border-gray-800 bg-gray-300 dark:bg-gray-600 overflow-hidden cursor-pointer group relative shadow-lg"
             onClick={() => avatarInputRef.current?.click()}
           >
             {profile?.avatar_url ? (
               <img src={profile.avatar_url} alt="Avatar" className="w-full h-full object-cover" />
             ) : (
-              <div className="w-full h-full flex items-center justify-center text-gray-500 dark:text-gray-300 text-5xl">
+              <div className="w-full h-full flex items-center justify-center text-gray-500 dark:text-gray-300 text-5xl font-bold">
                 {profile?.full_name?.charAt(0) || user?.email?.charAt(0)?.toUpperCase()}
               </div>
             )}
             <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-40 transition flex items-center justify-center">
-              <span className="text-white text-xs opacity-0 group-hover:opacity-100 transition">
-                {uploadingAvatar ? '...' : '📷'}
+              <span className="text-white text-xs opacity-0 group-hover:opacity-100 transition font-semibold">
+                {uploadingAvatar ? '⏳' : '📷'}
               </span>
             </div>
           </div>
@@ -120,17 +168,17 @@ export default function Profile() {
             type="file" 
             accept="image/*" 
             className="hidden" 
-            onChange={(e) => uploadAvatar(e.target.files[0])}
+            onChange={(e) => e.target.files[0] && uploadAvatar(e.target.files[0])}
           />
         </div>
 
         {/* Name & Edit */}
-        <div className="flex justify-between items-start mb-6">
+        <div className="flex justify-between items-start mb-6 flex-col sm:flex-row gap-2 text-center sm:text-left">
           <div>
             <h1 className="text-2xl font-bold text-gray-800 dark:text-white">{profile?.full_name || 'No name set'}</h1>
             <p className="text-gray-600 dark:text-gray-400">{user?.email}</p>
           </div>
-          <button onClick={() => setEditing(!editing)} className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 text-sm">
+          <button onClick={() => setEditing(!editing)} className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 text-sm w-full sm:w-auto">
             {editing ? 'Cancel' : 'Edit Profile'}
           </button>
         </div>
