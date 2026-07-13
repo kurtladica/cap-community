@@ -20,6 +20,9 @@ export default function Profile() {
   const [userPosts, setUserPosts] = useState([])
   const [friendsCount, setFriendsCount] = useState(0)
   const [friends, setFriends] = useState([])
+  const [menuOpen, setMenuOpen] = useState(null)
+  const [editingPost, setEditingPost] = useState(null)
+  const [editContent, setEditContent] = useState('')
   const avatarInputRef = useRef(null)
   const coverInputRef = useRef(null)
   const router = useRouter()
@@ -52,7 +55,6 @@ export default function Profile() {
   const fetchFriends = async (userId) => {
     const { data: friendships } = await supabase.from('friendships').select('sender_id, receiver_id').or(`sender_id.eq.${userId},receiver_id.eq.${userId}`).eq('status', 'accepted')
     setFriendsCount(friendships?.length || 0)
-    
     const friendsList = await Promise.all((friendships || []).slice(0, 9).map(async (f) => {
       const friendId = f.sender_id === userId ? f.receiver_id : f.sender_id
       const { data: profile } = await supabase.from('profiles').select('full_name, avatar_url').eq('id', friendId).single()
@@ -84,6 +86,34 @@ export default function Profile() {
     if (!error) { setProfile(prev => ({ ...prev, full_name: fullName, bio, location, website })); setEditing(false) }
     else alert('Error saving profile')
   }
+
+  const handleDeletePost = async (postId) => {
+    if (!confirm('Delete this post?')) return
+    await supabase.from('posts').delete().eq('id', postId)
+    setMenuOpen(null)
+    fetchUserPosts(user.id)
+  }
+
+  const handleEditPost = (post) => {
+    setEditingPost(post.id)
+    setEditContent(post.content || '')
+    setMenuOpen(null)
+  }
+
+  const handleSaveEdit = async (postId) => {
+    if (!editContent.trim()) return
+    await supabase.from('posts').update({ content: editContent.trim(), updated_at: new Date() }).eq('id', postId)
+    setEditingPost(null)
+    setEditContent('')
+    fetchUserPosts(user.id)
+  }
+
+  // Close menu when clicking outside
+  useEffect(() => {
+    const handleClick = () => setMenuOpen(null)
+    if (menuOpen) document.addEventListener('click', handleClick)
+    return () => document.removeEventListener('click', handleClick)
+  }, [menuOpen])
 
   if (loading) return <LoadingSpinner />
 
@@ -176,17 +206,65 @@ export default function Profile() {
                 ) : (
                   userPosts.map(post => (
                     <div key={post.id} className="bg-white rounded-lg shadow p-4 mb-3">
-                      <div className="flex items-center mb-3">
-                        <div className="w-10 h-10 rounded-full bg-gray-300 overflow-hidden mr-3">
-                          {profile?.avatar_url && <img src={profile.avatar_url} alt="" className="w-full h-full object-cover" />}
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center">
+                          <div className="w-10 h-10 rounded-full bg-gray-300 overflow-hidden mr-3">
+                            {profile?.avatar_url && <img src={profile.avatar_url} alt="" className="w-full h-full object-cover" />}
+                          </div>
+                          <div>
+                            <p className="font-semibold">{profile?.full_name || 'Unknown'}</p>
+                            <p className="text-xs text-gray-500">{timeAgo(post.created_at)}</p>
+                          </div>
                         </div>
-                        <div>
-                          <p className="font-semibold">{profile?.full_name || 'Unknown'}</p>
-                          <p className="text-xs text-gray-500">{timeAgo(post.created_at)}</p>
+                        
+                        {/* Horizontal three-dot menu */}
+                        <div className="relative">
+                          <button 
+                            onClick={(e) => { e.stopPropagation(); setMenuOpen(menuOpen === post.id ? null : post.id) }}
+                            className="text-gray-500 hover:bg-gray-100 rounded-full w-8 h-8 flex items-center justify-center"
+                          >
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="6" viewBox="0 0 20 6" fill="currentColor">
+                              <circle cx="3" cy="3" r="2"/>
+                              <circle cx="10" cy="3" r="2"/>
+                              <circle cx="17" cy="3" r="2"/>
+                            </svg>
+                          </button>
+                          
+                          {menuOpen === post.id && (
+                            <div className="absolute right-0 top-8 bg-white shadow-lg rounded-lg py-1 z-20 border min-w-[120px]">
+                              <button 
+                                onClick={() => handleEditPost(post)}
+                                className="w-full text-left px-4 py-2 text-sm hover:bg-gray-100"
+                              >
+                                ✏️ Edit Post
+                              </button>
+                              <button 
+                                onClick={() => handleDeletePost(post.id)}
+                                className="w-full text-left px-4 py-2 text-sm text-red-500 hover:bg-gray-100"
+                              >
+                                🗑️ Delete Post
+                              </button>
+                            </div>
+                          )}
                         </div>
                       </div>
-                      {post.content && <p className="mb-3">{post.content}</p>}
-                      {post.image_url && <img src={post.image_url} alt="Post" className="w-full rounded-lg max-h-96 object-cover" />}
+
+                      {/* Edit Mode */}
+                      {editingPost === post.id ? (
+                        <div className="mb-3">
+                          <textarea value={editContent} onChange={(e) => setEditContent(e.target.value)}
+                            className="w-full p-2 border rounded-lg mb-2" rows="3" />
+                          <div className="flex gap-2">
+                            <button onClick={() => handleSaveEdit(post.id)} className="bg-green-500 text-white px-3 py-1 rounded text-sm">Save</button>
+                            <button onClick={() => setEditingPost(null)} className="bg-gray-300 text-gray-700 px-3 py-1 rounded text-sm">Cancel</button>
+                          </div>
+                        </div>
+                      ) : (
+                        <>
+                          {post.content && <p className="mb-3">{post.content}</p>}
+                          {post.image_url && <img src={post.image_url} alt="Post" className="w-full rounded-lg max-h-96 object-cover" />}
+                        </>
+                      )}
                     </div>
                   ))
                 )}
@@ -197,31 +275,11 @@ export default function Profile() {
             {activeTab === 'about' && (
               <div className="bg-white rounded-lg shadow p-6">
                 <h2 className="text-lg font-bold mb-4">About</h2>
-                {profile?.bio && (
-                  <div className="mb-4">
-                    <p className="text-gray-500 text-sm">Bio</p>
-                    <p>{profile.bio}</p>
-                  </div>
-                )}
-                {profile?.location && (
-                  <div className="mb-4">
-                    <p className="text-gray-500 text-sm">Location</p>
-                    <p>📍 {profile.location}</p>
-                  </div>
-                )}
-                {profile?.website && (
-                  <div className="mb-4">
-                    <p className="text-gray-500 text-sm">Website</p>
-                    <a href={profile.website} target="_blank" className="text-blue-500 hover:underline" rel="noreferrer">🔗 {profile.website}</a>
-                  </div>
-                )}
-                <div className="mb-4">
-                  <p className="text-gray-500 text-sm">Joined</p>
-                  <p>📅 {new Date(profile?.created_at).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</p>
-                </div>
-                {!profile?.bio && !profile?.location && !profile?.website && (
-                  <p className="text-gray-500">No details yet. Click Edit Profile to add info.</p>
-                )}
+                {profile?.bio && <div className="mb-4"><p className="text-gray-500 text-sm">Bio</p><p>{profile.bio}</p></div>}
+                {profile?.location && <div className="mb-4"><p className="text-gray-500 text-sm">Location</p><p>📍 {profile.location}</p></div>}
+                {profile?.website && <div className="mb-4"><p className="text-gray-500 text-sm">Website</p><a href={profile.website} target="_blank" className="text-blue-500 hover:underline" rel="noreferrer">🔗 {profile.website}</a></div>}
+                <div className="mb-4"><p className="text-gray-500 text-sm">Joined</p><p>📅 {new Date(profile?.created_at).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</p></div>
+                {!profile?.bio && !profile?.location && !profile?.website && <p className="text-gray-500">No details yet.</p>}
               </div>
             )}
 
@@ -229,16 +287,13 @@ export default function Profile() {
             {activeTab === 'friends' && (
               <div className="bg-white rounded-lg shadow p-6">
                 <h2 className="text-lg font-bold mb-4">Friends ({friendsCount})</h2>
-                {friends.length === 0 ? (
-                  <p className="text-gray-500">No friends yet.</p>
-                ) : (
+                {friends.length === 0 ? <p className="text-gray-500">No friends yet.</p> : (
                   <div className="grid grid-cols-3 gap-3">
                     {friends.map(friend => (
                       <Link key={friend.id} href={`/profile/${friend.id}`} className="text-center hover:bg-gray-50 rounded-lg p-2 transition">
                         <div className="w-16 h-16 rounded-full bg-gray-300 mx-auto mb-1 overflow-hidden">
                           {friend.avatar_url ? <img src={friend.avatar_url} alt="" className="w-full h-full object-cover" /> :
-                            <div className="w-full h-full flex items-center justify-center font-bold text-gray-500">{friend.full_name?.charAt(0)}</div>
-                          }
+                            <div className="w-full h-full flex items-center justify-center font-bold text-gray-500">{friend.full_name?.charAt(0)}</div>}
                         </div>
                         <p className="text-xs font-medium truncate">{friend.full_name}</p>
                       </Link>
@@ -249,7 +304,7 @@ export default function Profile() {
             )}
           </div>
 
-          {/* Sidebar - Intro */}
+          {/* Sidebar */}
           <div className="md:col-span-1">
             <div className="bg-white rounded-lg shadow p-4 mb-4">
               <h3 className="font-bold text-lg mb-3">Intro</h3>
@@ -260,38 +315,25 @@ export default function Profile() {
               {!profile?.bio && !profile?.location && !profile?.website && <p className="text-gray-500 text-sm">Add info in Edit Profile</p>}
             </div>
 
-            {/* Photos preview */}
             <div className="bg-white rounded-lg shadow p-4 mb-4">
               <h3 className="font-bold text-lg mb-3">Photos</h3>
               <div className="grid grid-cols-3 gap-1">
-                {profile?.avatar_url && (
-                  <div className="aspect-square bg-gray-200 rounded overflow-hidden">
-                    <img src={profile.avatar_url} alt="Profile" className="w-full h-full object-cover" />
-                  </div>
-                )}
+                {profile?.avatar_url && <div className="aspect-square bg-gray-200 rounded overflow-hidden"><img src={profile.avatar_url} alt="" className="w-full h-full object-cover" /></div>}
                 {userPosts.filter(p => p.image_url).slice(0, 8).map(post => (
-                  <div key={post.id} className="aspect-square bg-gray-200 rounded overflow-hidden">
-                    <img src={post.image_url} alt="" className="w-full h-full object-cover" />
-                  </div>
+                  <div key={post.id} className="aspect-square bg-gray-200 rounded overflow-hidden"><img src={post.image_url} alt="" className="w-full h-full object-cover" /></div>
                 ))}
               </div>
-              {!profile?.avatar_url && userPosts.filter(p => p.image_url).length === 0 && (
-                <p className="text-gray-500 text-sm">No photos yet</p>
-              )}
+              {!profile?.avatar_url && userPosts.filter(p => p.image_url).length === 0 && <p className="text-gray-500 text-sm">No photos yet</p>}
             </div>
 
-            {/* Friends preview */}
             <div className="bg-white rounded-lg shadow p-4">
-              <div className="flex justify-between items-center mb-3">
-                <h3 className="font-bold text-lg">Friends ({friendsCount})</h3>
-              </div>
+              <div className="flex justify-between items-center mb-3"><h3 className="font-bold text-lg">Friends ({friendsCount})</h3></div>
               <div className="grid grid-cols-3 gap-2">
                 {friends.slice(0, 9).map(friend => (
                   <Link key={friend.id} href={`/profile/${friend.id}`} className="text-center">
                     <div className="w-14 h-14 rounded-full bg-gray-300 mx-auto mb-1 overflow-hidden">
                       {friend.avatar_url ? <img src={friend.avatar_url} alt="" className="w-full h-full object-cover" /> :
-                        <div className="w-full h-full flex items-center justify-center font-bold text-gray-500 text-lg">{friend.full_name?.charAt(0)}</div>
-                      }
+                        <div className="w-full h-full flex items-center justify-center font-bold text-gray-500 text-lg">{friend.full_name?.charAt(0)}</div>}
                     </div>
                     <p className="text-xs truncate">{friend.full_name?.split(' ')[0]}</p>
                   </Link>
