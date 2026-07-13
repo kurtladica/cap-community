@@ -46,43 +46,42 @@ export default function Home() {
   if (loading) return <LoadingSpinner />
 
   return (
-    <div className="min-h-screen bg-gray-100 dark:bg-gray-900 transition-colors">
+    <div className="min-h-screen bg-gray-100">
       <div className="max-w-2xl mx-auto p-4 sm:p-8 pt-6">
         <div className="text-center mb-8">
-          <h1 className="text-2xl sm:text-3xl font-bold text-gray-800 dark:text-white">Welcome back!</h1>
-          <p className="text-black dark:text-red-500 font-bold text-xl">DARK MODE TEST - RED IN DARK MODE</p>
-          <p className="text-gray-500 dark:text-gray-400 mt-1">What would you like to do?</p>
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-800">Welcome back!</h1>
+          <p className="text-gray-500 mt-1">What would you like to do?</p>
         </div>
         
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-4">
-          <Link href="/profile" className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 sm:p-6 hover:shadow-md transition text-center">
+          <Link href="/profile" className="bg-white rounded-lg shadow p-4 sm:p-6 hover:shadow-md transition text-center">
             <span className="text-2xl sm:text-3xl">👤</span>
-            <p className="mt-1 sm:mt-2 font-semibold text-sm sm:text-base text-gray-800 dark:text-white">My Profile</p>
+            <p className="mt-1 sm:mt-2 font-semibold text-sm sm:text-base text-gray-800">My Profile</p>
           </Link>
-          <Link href="/posts" className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 sm:p-6 hover:shadow-md transition text-center">
+          <Link href="/posts" className="bg-white rounded-lg shadow p-4 sm:p-6 hover:shadow-md transition text-center">
             <span className="text-2xl sm:text-3xl">📢</span>
-            <p className="mt-1 sm:mt-2 font-semibold text-sm sm:text-base text-gray-800 dark:text-white">Feed</p>
+            <p className="mt-1 sm:mt-2 font-semibold text-sm sm:text-base text-gray-800">Feed</p>
           </Link>
-          <Link href="/friends" className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 sm:p-6 hover:shadow-md transition text-center">
+          <Link href="/friends" className="bg-white rounded-lg shadow p-4 sm:p-6 hover:shadow-md transition text-center">
             <span className="text-2xl sm:text-3xl">👥</span>
-            <p className="mt-1 sm:mt-2 font-semibold text-sm sm:text-base text-gray-800 dark:text-white">Friends</p>
+            <p className="mt-1 sm:mt-2 font-semibold text-sm sm:text-base text-gray-800">Friends</p>
           </Link>
-          <Link href="/search" className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 sm:p-6 hover:shadow-md transition text-center">
+          <Link href="/search" className="bg-white rounded-lg shadow p-4 sm:p-6 hover:shadow-md transition text-center">
             <span className="text-2xl sm:text-3xl">🔍</span>
-            <p className="mt-1 sm:mt-2 font-semibold text-sm sm:text-base text-gray-800 dark:text-white">Find Friends</p>
+            <p className="mt-1 sm:mt-2 font-semibold text-sm sm:text-base text-gray-800">Find Friends</p>
           </Link>
-          <Link href="/messages" className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 sm:p-6 hover:shadow-md transition text-center relative">
+          <Link href="/messages" className="bg-white rounded-lg shadow p-4 sm:p-6 hover:shadow-md transition text-center relative">
             <span className="text-2xl sm:text-3xl">💬</span>
             {unreadMessages > 0 && (
               <span className="absolute top-2 right-2 bg-red-500 text-white text-xs w-6 h-6 flex items-center justify-center rounded-full font-bold">
                 {unreadMessages}
               </span>
             )}
-            <p className="mt-1 sm:mt-2 font-semibold text-sm sm:text-base text-gray-800 dark:text-white">Messages</p>
+            <p className="mt-1 sm:mt-2 font-semibold text-sm sm:text-base text-gray-800">Messages</p>
           </Link>
-          <Link href="/notifications" className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 sm:p-6 hover:shadow-md transition text-center">
+          <Link href="/notifications" className="bg-white rounded-lg shadow p-4 sm:p-6 hover:shadow-md transition text-center">
             <span className="text-2xl sm:text-3xl">🔔</span>
-            <p className="mt-1 sm:mt-2 font-semibold text-sm sm:text-base text-gray-800 dark:text-white">Notifications</p>
+            <p className="mt-1 sm:mt-2 font-semibold text-sm sm:text-base text-gray-800">Notifications</p>
           </Link>
         </div>
       </div>
