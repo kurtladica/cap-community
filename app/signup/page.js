@@ -4,18 +4,30 @@ import { supabase } from '../../lib/supabase'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 
-export default function Login() {
+export default function SignUp() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
   const [error, setError] = useState(null)
   const [loading, setLoading] = useState(false)
   const router = useRouter()
 
-  const handleLogin = async (e) => {
+  const handleSignUp = async (e) => {
     e.preventDefault()
-    setLoading(true)
     setError(null)
-    const { error } = await supabase.auth.signInWithPassword({ email, password })
+
+    if (password !== confirmPassword) {
+      setError('Passwords do not match')
+      return
+    }
+
+    if (password.length < 6) {
+      setError('Password must be at least 6 characters')
+      return
+    }
+
+    setLoading(true)
+    const { error } = await supabase.auth.signUp({ email, password })
     if (error) setError(error.message)
     else router.push('/')
     setLoading(false)
@@ -37,18 +49,9 @@ export default function Login() {
           fontWeight: 900,
           fontSize: '30px',
           color: 'rgb(16, 137, 211)',
-          marginBottom: '5px',
-        }}>
-          CAP Community
-        </div>
-        <div style={{
-          textAlign: 'center',
-          fontWeight: 700,
-          fontSize: '22px',
-          color: '#333',
           marginBottom: '20px',
         }}>
-          Sign In
+          Sign Up
         </div>
 
         {error && (
@@ -65,7 +68,7 @@ export default function Login() {
           </div>
         )}
 
-        <form onSubmit={handleLogin}>
+        <form onSubmit={handleSignUp}>
           <input
             required
             type="email"
@@ -80,11 +83,8 @@ export default function Login() {
               borderRadius: '20px',
               marginTop: '15px',
               boxShadow: '#cff0ff 0px 10px 10px -5px',
-              borderInline: '2px solid transparent',
               outline: 'none',
             }}
-            onFocus={(e) => e.target.style.borderInline = '2px solid #12B1D1'}
-            onBlur={(e) => e.target.style.borderInline = '2px solid transparent'}
           />
           <input
             required
@@ -100,11 +100,25 @@ export default function Login() {
               borderRadius: '20px',
               marginTop: '15px',
               boxShadow: '#cff0ff 0px 10px 10px -5px',
-              borderInline: '2px solid transparent',
               outline: 'none',
             }}
-            onFocus={(e) => e.target.style.borderInline = '2px solid #12B1D1'}
-            onBlur={(e) => e.target.style.borderInline = '2px solid transparent'}
+          />
+          <input
+            required
+            type="password"
+            placeholder="Confirm Password"
+            value={confirmPassword}
+            onChange={(e) => setConfirmPassword(e.target.value)}
+            style={{
+              width: '100%',
+              background: 'white',
+              border: 'none',
+              padding: '15px 20px',
+              borderRadius: '20px',
+              marginTop: '15px',
+              boxShadow: '#cff0ff 0px 10px 10px -5px',
+              outline: 'none',
+            }}
           />
           
           <button
@@ -125,19 +139,18 @@ export default function Login() {
               opacity: loading ? 0.6 : 1,
             }}
           >
-            {loading ? 'Signing In...' : 'Sign In'}
+            {loading ? 'Creating Account...' : 'Sign Up'}
           </button>
         </form>
 
         <div style={{ textAlign: 'center', marginTop: '15px' }}>
-          <Link href="/signup" style={{ textDecoration: 'none', color: '#0099ff', fontSize: '13px', fontWeight: 500 }}>
-            Don&apos;t have an account? Sign Up
-          </Link>
-        </div>
-
-        <div style={{ textAlign: 'center', marginTop: '8px' }}>
-          <Link href="/" style={{ textDecoration: 'none', color: 'rgb(170, 170, 170)', fontSize: '11px' }}>
-            ← Back to Home
+          <Link href="/login" style={{
+            textDecoration: 'none',
+            color: '#0099ff',
+            fontSize: '13px',
+            fontWeight: 500,
+          }}>
+            Back to Login
           </Link>
         </div>
       </div>
