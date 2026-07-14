@@ -16,7 +16,7 @@ export default function ForgotPassword() {
     setMessage(null)
     
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/reset-password`,
+      redirectTo: `https://cap-community.vercel.app/reset-password`,
     })
     
     if (error) {
