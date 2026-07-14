@@ -16,8 +16,15 @@ export default function Login() {
     setLoading(true)
     setError(null)
     const { error } = await supabase.auth.signInWithPassword({ email, password })
-    if (error) setError(error.message)
-    else router.push('/')
+    if (error) {
+      if (error.message.includes('Email not confirmed')) {
+        setError('Please check your email and confirm your account before logging in.')
+      } else {
+        setError(error.message)
+      }
+    } else {
+      router.push('/')
+    }
     setLoading(false)
   }
 
@@ -91,6 +98,16 @@ export default function Login() {
               outline: 'none',
             }}
           />
+
+          <div style={{ textAlign: 'right', marginTop: '8px' }}>
+            <Link href="/forgot-password" style={{
+              textDecoration: 'none',
+              color: '#0099ff',
+              fontSize: '11px',
+            }}>
+              Forgot Password?
+            </Link>
+          </div>
           
           <button
             type="submit"
